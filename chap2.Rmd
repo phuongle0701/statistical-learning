@@ -1,0 +1,469 @@
+---
+title: 'Statistical Learning: Chapter 2'
+author: "Phuong Dong Le"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning = FALSE} 
+library(ggplot2)
+library(tidyverse)
+library(gridExtra)
+library(kableExtra)
+library(GGally)
+library(table1)
+```
+
+
+
+
+## Exercise 8. 
+
+This relates to the `College` data set, containing a number of variables for 777 different universities and colleges in the US. 
+
+
+**(a). Use the `read.csv()` to read the data into `R`, call the loaded data `college`.**
+
+```{r}
+## set the working directory: 
+setwd(dir = "~/Desktop/Statistical Learning/dataset")
+
+### read the dataset college
+college = read.csv(file = "college.csv")
+```
+
+
+**(b). Look at the data using the `fix()` function. Try the following commands:**
+
+```{r}
+##rownames(college) = college[,1]
+##fix(college)
+
+
+### college = college[,-1]
+### fix(college)
+```
+
+
+**(c)**
+
+**(i). Use the `summary()` to produce a numerical summary of the variables in the data set**
+
+
+```{r}
+TableSummary = summary(college)
+print(TableSummary)
+```
+
+
+**(ii). Use the `pair()` function to produce the scatterplot matrix of first ten columns or variables of the data**
+
+
+```{r}
+PairData = college[,1:10]
+pairs(x = PairData)
+```
+
+
+**(iii). Make a boxplot of side-by-side of Outstate versus Private**
+
+```{r}
+Boxplot1 = ggplot(data = college, mapping = aes(x = Private, y = Outstate)) + 
+  geom_boxplot() + 
+  ggtitle(label = "Boxplot of Outstate versus Private") + 
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4 ) + 
+  xlab(label = "Private") + 
+  ylab(label = "Outstate") + 
+  theme_bw()
+
+print(Boxplot1)
+```
+
+
+**(iv). Create a qualitative variable `Elite`: binning the `Top10perc` variable: divide the universities into 2 groups based on prop. of students comming from the top 10% of high school exceeds 50%**
+
+```{r}
+Elite = rep("No", nrow(college))
+Elite[college$Top10perc > 50] = "Yes"
+Elite = as.factor(Elite)
+
+### bind the dataframe
+college = data.frame(college, Elite)
+
+summary(college)
+
+Boxplot2 = ggplot(data = college, mapping = aes(x = Private, y = Outstate)) + 
+  geom_boxplot() + 
+  ggtitle(label = "Boxplot of Outstate versus Private") + 
+  stat_summary(fun.y = mean, geom = "point", shape = 23, size = 4 ) + 
+  xlab(label = "Private") + 
+  ylab(label = "Outstate") + 
+  theme_bw()
+
+print(Boxplot2)
+```
+
+
+
+**(v), Make histograms for a few quantitative variables**
+
+```{r, message=FALSE, warning=FALSE}
+
+
+hist1 = ggplot(data = college, mapping = aes(x = Outstate)) + 
+  geom_histogram(fill = "blue") + 
+  ggtitle(label = "Histogram of Outstate") + 
+  theme_bw()
+
+hist2 = ggplot(data = college, mapping = aes(x = Accept)) + 
+  geom_histogram(fill = "navy") + 
+  ggtitle(label = "Histogram of Accepted Applicants") + 
+  theme_bw()
+
+hist3 = ggplot(data = college, mapping = aes(x = Enroll)) + 
+  geom_histogram(fill = "orange") + 
+  ggtitle(label = "Histogram of New students enrolled") + 
+  theme_bw()
+
+hist4 = ggplot(data = college, mapping = aes(x = Apps)) + 
+  geom_histogram(fill = "red") + 
+  ggtitle(label = "Histogram of Applications") + 
+  theme_bw()
+
+
+grid.arrange(hist1, hist2, ncol = 2)
+
+grid.arrange(hist3, hist4, ncol = 2)
+```
+
+
+
+
+
+
+
+## Exercise 9: 
+
+
+**(a). Find the predictors: quantitative, qualitative**
+
+
+```{r, message=FALSE, warning=FALSE}
+## set the working directory: 
+setwd(dir = "~/Desktop/Statistical Learning/dataset")
+
+### read the datafile: 
+
+auto = read.csv(file = "Auto.csv")
+### print out the structure: 
+str(auto)
+
+```
+
+
+* The quantitative predictors: `mpg`, `displacement`, `weight`, `acceleration`. 
+
+* The qualitative predictors: `cylinders`, `horsepower`, `year`, `origin`, `name`. 
+
+
+
+**(b). Find the range of each quantitative predictor**
+
+
+```{r}
+## range of mpg: 
+
+range_mpg = range(auto$mpg)
+range_displacement = range(auto$displacement)
+range_weight = range(auto$weight)
+range_acc = range(auto$acceleration)
+
+
+print(list(
+  range_mpg = range_mpg, 
+  range_displacement = range_displacement, 
+  range_weight = range_weight, 
+  range_acc = range_acc 
+))
+```
+
+
+
+**(c). Find the mean and standard deviation of each quantitative predictor**
+
+
+```{r}
+op_auto  = auto[,c("mpg", "displacement", "weight", "acceleration")]
+
+print(list(
+  mean_mpg = mean(op_auto$mpg), 
+  mean_dis = mean(op_auto$displacement), 
+  mean_weight = mean(op_auto$weight), 
+  mean_acc = mean(op_auto$acceleration)
+))
+
+
+print(list(
+  sd_mpg = sd(op_auto$mpg), 
+  sd_dis = sd(op_auto$displacement), 
+  sd_weight = sd(op_auto$weight), 
+  sd_acc = sd(op_auto$acceleration)
+))
+```
+
+
+
+
+
+
+**(d). Remove the 10th through 85th obsevation. Find the range, mean, and std. of each predictor in the subset of the data that remains**
+
+
+```{r}
+sub_auto = auto[-c(10:85),]
+
+range_mpg = range(sub_auto$mpg)
+range_displacement = range(sub_auto$displacement)
+range_weight = range(sub_auto$weight)
+range_acc = range(sub_auto$acceleration)
+
+
+print(list(
+  range_mpg = range_mpg, 
+  range_displacement = range_displacement, 
+  range_weight = range_weight, 
+  range_acc = range_acc 
+))
+
+op_auto  = sub_auto[,c("mpg", "displacement", "weight", "acceleration")]
+
+print(list(
+  mean_mpg = mean(op_auto$mpg), 
+  mean_dis = mean(op_auto$displacement), 
+  mean_weight = mean(op_auto$weight), 
+  mean_acc = mean(op_auto$acceleration)
+))
+
+
+print(list(
+  sd_mpg = sd(op_auto$mpg), 
+  sd_dis = sd(op_auto$displacement), 
+  sd_weight = sd(op_auto$weight), 
+  sd_acc = sd(op_auto$acceleration)
+))
+
+```
+
+
+**(e). Make some plots highlighting the relationships among the predictors using the full data set**
+
+
+```{r}
+plot1  = ggplot(data = auto, aes(x = weight, y = mpg)) + 
+  geom_point() + 
+  ggtitle(label = "Scatterplot of mpg vs. weight") + theme_bw()
+
+plot2  = ggplot(data = auto, aes(x = displacement, y = mpg)) + 
+  geom_point() + 
+  ggtitle(label = "Scatterplot of mpg vs. displacement") + theme_bw()
+
+plot3 =  ggplot(data = auto, aes(x = acceleration, y = mpg)) + 
+  geom_point() + 
+  ggtitle(label = "Scatterplot of mpg vs. acceleration") + theme_bw()
+
+grid.arrange(plot1,plot2,plot3, ncol = 2)
+```
+
+
+**(f). We want to predict gas mileage (mpg) on the basis of other variables**
+
+
+* Based on the scatterplots above, we can predict `mpg` using the variables: `weight` and `displacement`. There is a linear negative trend between these variables. 
+
+
+
+## Exercise 10: 
+
+
+**(a). This exercise involves the `Boston` housing data set**
+
+
+```{r}
+library(MASS)
+
+## Read about the dataset: 
+## ?Boston
+
+dim(Boston)
+names(Boston)
+head(Boston)
+```
+
+* There are 506 rows and 14 columns in data set. `crim` represent the per capita crime rate by town. `zn` is the prop. of residential land zoned for lots over 25,000 sqtft. `indus` is prop. of non-retail business acres per town. `chas` is Charles River dummy variable. `ncox` is nitrogent oxides concerntration. `rm` is average number of rooms per dwelling. `age` is prop. of owner-occupited units built prior to 1940. `dis` is weighted mean of distances to five Boston emp. centres.`rad` is index of acceibility of radial highways. `tax` is full prop. tax rate. `pratio` is pupil-teacher ratio by town. `black` prop. of blacks by town.`lstat` lower status of pop. percent. `medv` median value of owner occupied homes. 
+
+
+**(b). Make some pairwise scatterplots**
+
+```{r}
+str(Boston)
+Boston$chas <- as.numeric(Boston$chas)
+Boston$rad <- as.numeric(Boston$rad)
+pairs(x = Boston)
+```
+
+* Not much can be discerned other than the fact that some variables appear to be correlated. A correlation matrix would be more helpful and question-c gives us the opportunity to make one.
+
+**(c). Make a correlation matrix to find association with the per capita crime rate**
+
+```{r}
+
+round(
+  cor(x = Boston$crim, y = Boston[,c("zn", "indus","chas","nox", "rm", "age", "dis", "rad",
+                                     "tax", "ptratio","black", "lstat","medv")]), 
+  digits = 3)
+```
+
+* Based on the correlation coefficients and their corresponding p-values, there is indeed an association between the per capita crime rate (crim) and the other predictors.
+
+
+**Part (d)**
+
+```{r}
+summary(Boston$crim)
+summary(Boston$tax)
+summary(Boston$ptratio)
+
+## Histogram: 
+Hist1 = ggplot(data = Boston, aes(x = crim)) + 
+  ggtitle(label = "Histogram of Crime Rate") + 
+  ylab(label = "Number of Suburbs") + geom_histogram(binwidth = 5)
+
+Hist2 = ggplot(data = Boston, aes(x = tax)) + 
+  ggtitle(label = "Histogram of Tax Rate ") + 
+  ylab(label = "Number of Suburbs") + geom_histogram(binwidth = 5)
+
+Hist3 = ggplot(data = Boston, aes(x = ptratio)) + 
+  ggtitle(label = "Pupil-Teacher Ratio ") + 
+  ylab(label = "Number of Suburbs") + geom_histogram()
+
+grid.arrange(Hist1, Hist2, Hist3, ncol = 2)
+
+
+```
+
+
+* Considering that the median and maximum crime rate values are respectively about 0.26% and 89%, there are indeed some neighborhoods where the crime rate is alarmingly high
+
+```{r}
+selection <- subset( Boston, crim > 10)
+nrow(selection)/ nrow(Boston)
+```
+
+* There is 11% of the neighborhood’s have crime rates above 10%
+
+```{r}
+selection <- subset( Boston, crim > 50)
+nrow(selection)/ nrow(Boston)
+```
+
+* There is 0.8% of the neighborhoods have crim rates above 50%. 
+
+* Based on the histogram of the Tax rates, they are few neighborhoods where rates are relative higher. The median and average tax amount are $330 and $408.20 ( per Full-value property-tax rate per $10,000) respectively.
+
+```{r}
+selection <- subset( Boston, tax< 600)
+nrow(selection)/ nrow(Boston)
+```
+
+* 73% of the neighborhood pay under $600
+
+```{r}
+selection <- subset( Boston, tax> 600) 
+nrow(selection)/ nrow(Boston)
+```
+
+* There is around 27% of the neighborhood pay over $600
+
+
+
+**(e). The number of surbibs in this data set bound to the Charles River**
+
+```{r}
+nrow(subset(Boston, chas == 1))
+```
+
+* There are 35 such surburbs bound to the Charles River. 
+
+**(f). The median pupil-teacher ratio among the towns**
+
+```{r}
+median(Boston$ptratio)
+```
+
+* The median is 19.05 
+
+
+**(g). Find the least median surburb? values of other predictors for that surburb, and compare to the overall ranges for those predictors.**
+
+
+```{r}
+
+selection <- Boston[order(Boston$medv),]
+selection[1,]
+
+```
+
+
+* Suburb #399 with a median value of $5000. We can use the following summary information to answer part-2 of this question
+
+* Crime is very high compared to median and average rates of all Boston neighborhoods. 
+
+* No residential land zoned for lots over 25,000 sq.ft. This applies to more than half of the neighborhoods in Boston * Proportion of non-retail business acres per town is very high compared to most suburbs. 
+
+
+* This suburd is not one of the suburbs that bound the Charles river. 
+
+* Nitrogen oxides concentration (parts per 10 million) is one of the highest. 
+
+* Average number of rooms per dwelling is one of the lowest 
+
+
+* Highest proportion of owner proportion of owner-occupied units built prior to 1940. 
+
+* One of the lowest weighted mean of distances to five Boston employment centres. * Highest index of accessibility to radial highways. 
+
+* One of the highest full-value property-tax rate per $10,000. 
+
+* One of the highest pupil-teacher ratio by town * Highest value for 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town. 
+
+* One of the highest lower status of the population (percent) 
+
+* Lowest median value of owner-occupied homes in $1000s.
+
+Based on the list above, suburb 399 can be classified as one of the least desirable places to live in Boston.
+
+
+**Part (h)**
+
+```{r}
+rm_over_7 <- subset(Boston, rm>7)
+nrow(rm_over_7)  
+
+rm("rm_over_7")
+```
+
+
+* There are 64 suburbs with more than 7 rooms per dwelling.
+
+```{r}
+rm_over_8 <- subset(Boston, rm>8)
+nrow(rm_over_8)  
+
+summary(rm_over_8)
+```
+
+* There are 13 suburbs with more than 7 rooms per dwelling
+
