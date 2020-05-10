@@ -1,0 +1,226 @@
+---
+title: 'Statistical Learning: Lab Chapter 3'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning = FALSE}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggthemes)
+library(gridExtra)
+```
+
+
+
+# 3.6.2 Simple Linear Regression: 
+
+
+
+```{r}
+library(MASS)
+## fix(Boston)
+names(Boston)
+```
+
+
+* We start using the lm() function to fit a simple linear regression model with `medv` as the response and `lstat` as the predictor: 
+
+```{r, message=FALSE}
+lm.fit = lm(medv ~ lstat, data = Boston)
+
+attach(Boston)
+lm.fit2 = lm(medv ~lstat)
+
+print(lm.fit)
+summary(lm.fit)
+```
+
+* We use the names() function to find out order pieces of informnation stored in lm.fit: 
+
+```{r}
+names(lm.fit)
+coef(lm.fit)
+```
+
+
+* To obtain the confidence interval for the coefficient estimates, we use `confint()` command: 
+
+```{r}
+confint(lm.fit)
+```
+
+* the `predict()` function is to produce confidence intervals and prediction intervals for the prediction of medv for a given value of lstat: 
+
+
+```{r}
+
+## confidence interval of a given value of lstat: 
+predict(lm.fit, data.frame(lstat = c(5,10,15)), interval = "confidence")
+
+### prediction interval for a given value of lstat: 
+predict(lm.fit, data.frame(lstat = c(5,10,15)), interval = "prediction")
+```
+
+
+
+* We will now plot the medv and lstat along with the least squares regression line using the `plot()` and `abline()` function: 
+
+```{r, fig.height=8, fig.width=7}
+par(mfrow = c(2,2))
+plot(lstat, medv, pch = "+")
+abline(lm.fit, lwd = 3, col = "red")
+
+## We plot the residuals versus fitted values: 
+plot(predict(lm.fit), residuals(lm.fit))
+### or with student residuals: 
+plot(predict(lm.fit), rstudent(lm.fit))
+```
+
+
+* There is some evidence of non-linearity. Leverage statsitics can be computed using the `hatvalues()` function: 
+
+* The `which.max()` function identifies the index of the largest element of a vector. 
+
+```{r}
+plot(hatvalues(lm.fit), pch = 20)
+which.max(hatvalues(lm.fit))
+```
+
+
+# 3.6.3 Multiple linear regression: 
+
+* We can fit a multiple linear regression: 
+
+```{r}
+lm.fit = lm(medv ~ lstat + age, data = Boston)
+summary(lm.fit)
+```
+
+
+* The dataset `Boston` contains 13 variables and so it would be cumbersom to have to type all of these in order to perform a regression using all of the predictors. 
+
+```{r}
+lm.fit = lm(medv ~., data = Boston)
+
+summary(lm.fit)
+
+```
+
+
+
+* To compute the VIF's  Variance Inflation Factor using the library `car` in `R`: 
+
+```{r, message=FALSE}
+library(car)
+vif(mod = lm.fit)
+```
+
+
+* `age` has a high p-value so we may wish to run a regression excluding this predictor. The following syntax results in a regression using all predictors except `age`: 
+
+```{r}
+lm.fit1 = lm(medv ~. -age, data = Boston)
+summary(lm.fit1)
+```
+
+* Alternatively the `update()` function can be used: 
+
+```{r}
+lm.fit1 = update(lm.fit, ~.-age)
+summary(lm.fit1)
+```
+
+# 3.6.4 Interaction Terms: 
+
+
+* The syntax `:` tells `R~ to include an interaction term between 2 variables. The syntax `*`  simultaneously includes `lstat` `age` and the interaction term. 
+
+
+```{r}
+lm.fit = lm(medv~lstat*age, data = Boston)
+summary(lm.fit)
+```
+
+
+
+# 3.6.5 Nonlinear transformation of the predictors: 
+
+
+* We perform a regression of `medv` onto `lstat` and `lstat^2`: 
+
+
+```{r}
+lm.fit = lm(medv ~ lstat + I(lstat^2), data = Boston)
+summary(lm.fit)
+```
+
+* We use the `anova()` function to quantify the extent to which the quadratic fit is superior to the linear fit. 
+
+
+```{r}
+lm.fit2 = lm(medv ~ lstat, data = Boston)
+anova(lm.fit2, lm.fit)
+```
+
+* Clear evidence that the model containing the predictors `lstat` and `lstat^2` is far superior to the model that only contains the predictor `lstat`. 
+
+```{r, fig.height=8, fig.width=10}
+par(mfrow = c(2,2))
+plot(lm.fit, pch = 20)
+```
+
+
+* An alternative way is to use `poly()` function to create the polynomial within `lm()` function. 
+
+
+```{r}
+lm.fit5 = lm(medv~poly(lstat, degree = 5), data = Boston)
+summary(lm.fit5)
+```
+
+
+* Of course, we are in no way restrcited to using polynomial transformations of the predictors. We try `log` transformation: 
+
+```{r}
+lm.log = lm(medv~log(lstat), data = Boston)
+summary(lm.log)
+```
+
+
+# 3.6.6 Qualitative Predictors: 
+
+
+* We examine the data set `Carseats` part of the `ISLR` library. We predict `Sales` (child car seat sales) in 400 locations based on the number of predictors: 
+
+```{r}
+library(ISLR)
+
+names(Carseats)
+
+```
+
+* The data set includes qualitative predictors such as `Shelveloc` an indicator of the quality of the shelving location - the space within a store in which the car seat is displayed at each location. The predictor `Shelveloc` takes on 3 values: Bad, Medium and Good. 
+
+
+```{r}
+lm.fit = lm(Sales ~. + Income:Advertising +Price:Age, data = Carseats)
+summary(lm.fit)
+```
+
+
+* The `contrasts()` function returns the coding that `R` uses for the dummy variables. 
+
+```{r}
+attach(Carseats)
+
+contrasts(ShelveLoc)
+str(Carseats)
+```
+
+
+* ShelveLocGood dummary takes on value of 1 if the location is good, and 0 otherwise. ShelvelocMedium is 1 if the shelving location is medium and 0 otherwise. A bad shelving location corresponds to the zero for each of the two dummy variable.
