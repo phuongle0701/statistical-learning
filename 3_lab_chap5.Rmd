@@ -1,0 +1,257 @@
+---
+title: 'Chapter 5: Cross-Validation and Bootstrap Lab'
+author: "Phuong Dong Le"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(class)
+library(MASS)
+library(ISLR)
+library(RColorBrewer)
+library(corrplot)
+library(boot)
+### GGplot: 
+library(ggplot2)
+library(ggthemes)
+library(tidyverse)
+### Styling for tables and figures:
+library(kableExtra)
+library(gridExtra)
+```
+
+
+## Validation Set Approach: 
+
+
+* We begin using the `sample()` function to split the set of observations into 2 parts: a random subset of 196 observations out of the original 392 observations. We refer to these observations as the training set: 
+
+
+```{r, message=FALSE, warning=FALSE}
+## Read the data file: 
+setwd(dir = "~/Desktop/Statistical Learning/dataset")
+
+Auto  = read.csv("Auto.csv", 
+                 stringsAsFactors = FALSE, 
+                 na.strings = "?") 
+str(Auto)
+Auto = Auto[complete.cases(Auto),]
+dim(Auto)
+
+set.seed(1)
+
+train = sample(x = 392, 196)
+
+## Fit the linear model: 
+lm.fit = lm(mpg ~ horsepower, data = Auto, subset = train)
+summary(lm.fit)
+lm.fit2 = lm(mpg~poly(horsepower, 2), data = Auto, subset = train)
+summary(lm.fit2)
+lm.fit3 = lm(mpg~poly(horsepower, 3), data = Auto, subset = train)
+summary(lm.fit3)
+```
+
+
+
+
+## Leave-One-Out Cross-Validation: 
+
+
+* The LOOCV estimate can be computed for any generalized model using the `glm()` and `cv.glm()` functions. 
+
+```{r}
+glm.fit = glm(mpg ~ horsepower, data= Auto)
+coef(glm.fit)
+summary(glm.fit)
+```
+
+* Now we perform LOOCV using `cv.glm()` function part of the `boot` library: 
+
+
+```{r}
+cv.err = cv.glm(data = Auto, glm.fit)
+print(cv.err$delta)
+```
+
+* We can repeat this procedure for increasingly complex polynomial fits. We use the loop which iterately fits polynomial regressions for poly of order i = 1 to i = 10, computing the associated cross-validation error and stores it in the ith element of the vector cv.error. 
+
+
+```{r}
+deg.vec = c(1,2,3,4,5,6,7,8,9,10)
+cv.error = rep(NA)
+
+
+for(i in 1:10){
+  glm.fit = glm(formula = mpg ~ poly(horsepower, i), data = Auto)
+  cv.error[i] = cv.glm(data = Auto, glm.fit)$delta[1]
+}
+
+data.Error = cbind(deg.vec, cv.error)
+data.Error = as.data.frame(data.Error)
+```
+
+```{r, fig.align='center'}
+Error.Plot = ggplot(data = data.Error, 
+                    aes(x  = factor(deg.vec), y = cv.error)) + 
+  geom_point(pch = 17, size = 4, color = "red") + 
+  theme_bw() + 
+  ggtitle(label = "Error Rate") + 
+  xlab(label = "Degree of polynomial") + 
+  ylab(label = "Cross-Validation Error") + 
+  theme(title = element_text(hjust = 0.5, size = 15)) + 
+    geom_path(mapping = aes(x = deg.vec, 
+                          y = cv.error), 
+            data = data.Error, 
+            color = "black", size = 0.5, 
+            lty = 2)
+
+print(Error.Plot)
+```
+
+
+
+* There is a sharp dropping in the estimated test MSE between the linear and quadratic fits, but then there is no clear improvement from using higher-order polynomials. 
+
+
+## k-Fold Cross-Validation: 
+
+* The `cv.glm()` function can be used to implement k-fold CV. We use k = 10 a common choice of k on the same data set `Auto`. 
+
+
+```{r}
+set.seed(100)
+
+
+deg.vec = c(1,2,3,4,5,6,7,8,9,10)
+cv.error.10 = rep(NA)
+
+
+for(i in 1:10){
+  glm.fit = glm(formula = mpg ~ poly(horsepower, i), data = Auto)
+  cv.error.10[i] = cv.glm(data = Auto, glm.fit, K = 10)$delta[1]
+}
+
+data.Error = cbind(deg.vec, cv.error.10)
+data.Error = as.data.frame(data.Error)
+```
+
+
+
+```{r, fig.align='center', message=FALSE, warning=FALSE}
+Error.Plot = ggplot(data = data.Error, 
+                    aes(x  =  factor(deg.vec), y = cv.error.10)) + 
+  geom_point(pch = 15, size = 4, color = "red") + 
+  theme_bw() + 
+  ggtitle(label = "Error Rate") + 
+  xlab(label = "Degree of polynomial") + 
+  ylab(label = "Cross-Validation Error") + 
+  theme(title = element_text(hjust = 0.5, size = 15)) + 
+  geom_path(mapping = aes(x = deg.vec, 
+                          y = cv.error.10), 
+            data = data.Error, 
+            color = "blue", size = 0.5, 
+            lty = 10)
+
+print(Error.Plot)
+```
+
+
+
+* There is a little evidence of using cubic or higher-order polynomial terms leads to the lowest test error than simply using a quadratic fit. 
+
+
+
+## The Bootstrap: 
+
+
+* We create a function that computes the statistic of interest. 
+
+* We then use the `boot()` function to perform the bootstrap by repeatedly sampling observations 
+from the data set with replacement. 
+
+
+* To illustrate the use of bootstrap, we first create a function `alpha.fn()` which takse (X,Y) data as well as a
+vector indicating which observations should be used to estimate $\alpha$. The function then outputs the estimate for $\alpha$ based on 
+the selected observations. 
+
+```{r}
+alpha.fn = function(data, index){
+  X = data$X[index]
+  Y = data$Y[index]
+  return((var(Y) - cov(X,Y))/(var(X) + var(Y) - 2*cov(X,Y)))
+}
+set.seed(1)
+alpha.fn(Portfolio, 1:100)
+alpha.fn(Portfolio, sample(100,100, replace = TRUE))
+```
+
+
+* We produce $R = 1,000$ boostrap estimates for $\alpha$: 
+
+```{r}
+boot(data  = Portfolio, statistic = alpha.fn, R = 1000)
+```
+
+
+* The final output shows that using the original data, $\hat \alpha = 0.5758321$, and the boostrap estimate for $SE(\hat \alpha) = 0.08861826$
+
+### Estimating the accuracy of a linear regression model: 
+
+
+```{r}
+boot.fn = function (data, index){
+  lm.fit = lm(mpg ~ horsepower, data = data, subset = index)
+  coef.fit = round(coef(lm.fit), digits = 3)
+  return(coef.fit)
+}
+boot.fn(data = Auto, index = 1:392)
+```
+
+* The coefficients are $\hat \beta_0 = 39.936; \hat \beta_1 = -0.158$. 
+
+
+* We can create boostrap estimates for the intercept and slope by randomly sampling from among the observations with replacement. 
+
+
+```{r}
+set.seed(1)
+boot.fn(data = Auto, sample(dim(Auto)[1], dim(Auto)[1], replace = TRUE))
+boot.fn(data = Auto, sample(dim(Auto)[1], dim(Auto)[1]/3, replace = TRUE))
+```
+
+* Next, we use the `boot()` function to compute the standard errors of 1000 boostrap estimates for the intercept and slope terms: 
+
+
+```{r}
+boot(data = Auto, statistic = boot.fn, R = 1000)
+```
+
+* The estimated intercept is $\hat \beta_0 = 39.936$ and its $SE(\hat\beta_0) = 0.86147$. The estimated slope $\hat\beta_1 = -0.158$ and its $SE(\hat\beta_1) = 0.007426$. 
+
+
+* We can perform the boostrap on polynomial degree of fitting the model. 
+
+
+```{r}
+boot.fn = function (data, index){
+  lm.fit = lm(mpg ~ horsepower + I(horsepower^2), data = data, subset = index)
+  coef.fit = round(coefficients(lm.fit), digits = 4)
+  return(coef.fit)
+}
+set.seed(1)
+boot.fn(data = Auto, sample(dim(Auto)[1], dim(Auto)[1], replace = TRUE))
+boot.fn(data = Auto, sample(dim(Auto)[1], dim(Auto)[1]/3, replace = TRUE))
+
+### Bootstrap:
+boot(data = Auto, statistic = boot.fn, R = 1000)
+```
+
+
+
+
+
