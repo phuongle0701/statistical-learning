@@ -1,0 +1,430 @@
+---
+title: 'Statistical Learning: Chapter 3 Applied Exercise'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+```
+
+
+## 8. This question involves the use of simple linear regression on the `Auto` data set.
+
+```{r, message=FALSE, warning=FALSE}
+setwd(dir = "~/Desktop/Statistical Learning/dataset")
+## read the data set :
+Auto  = read.csv("Auto.csv", 
+                 stringsAsFactors = FALSE, 
+                 na.strings = "?") 
+str(Auto)
+Auto = Auto[complete.cases(Auto),]
+dim(Auto)
+```
+
+
+**Part Use the `lm()` to peform the simple linear regression with `mpg` response and horsepower as the predictor**
+
+
+```{r}
+str(Auto)
+lm.fit  = lm(formula = mpg~horsepower, data = Auto)
+summary(lm.fit)
+```
+
+* There is a relationship between the predictor and the response. 
+
+```{r}
+cor(x = Auto$horsepower, y = Auto$mpg, method = c("pearson"))
+```
+
+* The relationship is quite negatively strong. 
+
+* The predicted `mpg` associated with a `horsepower` of  98. The associated 95% confidence and prediction intervals. 
+
+
+```{r}
+
+## 95% Confidence interval: 
+predict(object = lm.fit, data.frame(horsepower = c(98)), 
+        interval = "confidence")
+## 95% prediction interval: 
+predict(object = lm.fit, data.frame(horsepower = c(98)), 
+        interval = "prediction")
+```
+
+* So the predicted `mpg` is $24.46708$ associated with `horsepower` of 98. 
+
+* The 95% confidence interval is $(23.97308,24.96108)$. The 95% prediction interval is $(14.8094, 34.12476)$. 
+
+
+
+**Part(b)**
+
+
+```{r}
+
+intercept.lmfit = as.numeric(lm.fit$coefficients[1])
+slope.lmfit = as.numeric(lm.fit$coefficients[2])
+
+scatterplot = ggplot(data = Auto, aes(x = horsepower, y = mpg))+
+  geom_point(color = "blue") + 
+  xlab(label = "Horsepower") + 
+  ylab(label = "mpg") + 
+  ggtitle(label = "Horsepower vs. Gas Mileage") +
+  theme_base() + geom_abline(slope = slope.lmfit, 
+                             intercept = intercept.lmfit, 
+                             color = "red", 
+                             size = 1.5) + 
+  geom_smooth(color = "green",
+              size = 1, 
+              linetype = "dashed", 
+              method = 'loess')
+
+print(scatterplot)
+
+```
+
+
+
+```{r, fig.height=10, fig.width=12}
+par(mfrow = c(2,2))
+
+plot(lm.fit, pch  = "x", col = "navy")
+
+```
+
+
+* There is a problem of non-constance variance assumption. The residual vs. fitted values suggest the heteroscadascity of variance. 
+
+
+
+## 11. To begin we generate the predictor `x` and a response `y` as follows:
+
+```{r}
+set.seed(1)
+x = rnorm(n = 100)
+y = 2*x + rnorm(100)
+```
+
+
+
+**Part (a)**
+
+```{r}
+### without interception: 
+lm.fit = lm(y ~ x + 0)
+
+summary(lm.fit)
+
+```
+
+
+* The coefficient estimate $\hat \beta = 1.9939$, the standard error is 0.1065, t-value is 18.73 and p-value is extremely small as it is less than $2 \times 10^{-16}$. 
+
+
+**Part (b)**
+
+* We perfom the regression of x onto y without an intercept, and report the estimated coefficient, SE, t-statistic and p-values. 
+
+
+```{r}
+lm.fit2 = lm(x ~ y + 0) 
+summary(lm.fit2)
+
+```
+
+
+* The estimated coefficient is $0.39111$, $SE = 0.02089$, $t-value = 18.73$ and the p-value is extremely small less than $2\times 10^{-16}$. 
+
+
+
+## Exercise 13: Simulating the data
+
+
+**Part (a)**
+
+* Using `rnorm()` create the vector `x` containing 100 observations from a Normal(0,1) distribution. This represents feature X. 
+
+```{r}
+set.seed(1)
+X = rnorm(n = 100, mean = 0, sd = 1)
+
+```
+
+
+
+**Part (b)**
+
+
+* Create the vector `eps` containing 100 observations from a Normal(0,0.25) with mean zero and variance 0.25. 
+
+
+```{r}
+set.seed(1)
+eps = rnorm(n = 100, 
+            mean = 0, 
+            sd = sqrt(0.25))
+```
+
+
+**Part (c)**
+
+* Generate the vector `y` according to the model: 
+
+$$
+Y = -1 + 0.5X + \epsilon
+$$
+
+```{r}
+set.seed(1)
+Y = -1 + 0.5*X + eps
+Dataset = cbind(X, Y, eps)
+Dataset = as.data.frame(Dataset)
+```
+
+
+* The length of vector `y` is 100. The value of $\beta_0$ is $-1$, and $\beta_1$ is $0.5$. 
+
+
+
+**Part (d)**
+
+
+* The scatterplot displays the relationship between `x` and `y`. 
+
+
+```{r}
+plot1 = ggplot(data = Dataset, aes(x = X, y = Y)) + 
+  geom_point(pch = 4, color = "navy") +
+  ggtitle(label = "Scatterplot of X vs. Y") + 
+  xlab(label = "Feature X") + 
+  ylab(label = "Feature Y") + 
+  theme_bw() 
+
+print(plot1)
+
+```
+
+
+
+**Part (e)**
+
+* We fit a least squares linear model to predict y using x: 
+
+```{r, message=FALSE, warning=FALSE}
+lm.fit = lm(Y ~ X , data = Dataset)
+summary(lm.fit)
+```
+
+
+**Part (f)**
+
+
+
+```{r}
+plot2 = ggplot(data = Dataset, aes(x = X, y = Y)) + 
+  geom_point(pch = 4, color = "navy") +
+  ggtitle(label = "Scatterplot of X vs. Y") + 
+  xlab(label = "Feature X") + 
+  ylab(label = "Feature Y") + 
+  theme_bw() + 
+  geom_smooth(method = "lm", color = "red", 
+              size = 0.25, lty = 1)
+
+print(plot2)
+
+```
+
+
+
+**Part (g)**
+
+
+* We fit a polynomial regression predicting $y$ using $x$ and $x^2$: 
+
+
+```{r}
+poly.fit = lm(Y ~ X + I(X^2), data = Dataset)
+summary(poly.fit)
+
+```
+
+
+* There is no evidence that the quadratic term improves the model fit because the p-value associated with quadratic term is large as $p = 0.898$. 
+
+
+## Exercise 14: This problem involves on `collinearity` problem: 
+
+
+**Part (a)** 
+
+
+```{r}
+set.seed(1)
+
+x1 = runif(n = 100)
+x2 = 0.5*x1 + rnorm(100)/10
+y = 2 + 2*x1 + 0.3*x2 + rnorm(100)
+
+DataSet = cbind(x1,x2,y)
+DataSet = as.data.frame(DataSet)
+```
+
+
+* The form of  the linear model: 
+
+$$
+Y = 2 + 2X_{1} + 0.3X_{2} + \epsilon
+$$
+
+
+The regression coefficients: 
+
+$$
+\beta_0 = 2; \quad 
+\beta_{1,1} = 2; \quad
+\beta_{1,2}  = 0.3
+$$
+
+**Part(b)**
+
+
+* The correlation between `x1` and `x2`: 
+
+```{r}
+Cor.X1.X2 = cor(x = DataSet$x1, y = DataSet$x2)
+
+print(list(
+  Cor.X1.X2 = Cor.X1.X2
+))
+```
+
+
+* The scatterplot between the variables: 
+
+
+```{r, warning=FALSE, message=FALSE, fig.align='left', fig.width=10, fig.height=8}
+
+library(gridExtra)
+
+
+Plot1 = ggplot(data = DataSet, 
+               aes(x = x1, y = x2)) + 
+  geom_point(pch = 2, color = "black", size = 2) + 
+  ggtitle(label = "Scatteprlot X1 vs. X2") + 
+  xlab(label = "Feature X1") + 
+  ylab(label = "Feature X2") + 
+  theme_bw()
+
+
+Plot2 = ggplot(data = DataSet, 
+               aes(x = x1, y = y)) + 
+  geom_point(pch = 13, color = "orange", size = 2) + 
+  ggtitle(label = "Scatteprlot X1 vs. Y") + 
+  xlab(label = "Feature X1") + 
+  ylab(label = "Feature Y") + 
+  theme_bw()
+
+
+Plot3 = ggplot(data = DataSet, 
+               aes(x = x2, y = y)) + 
+  geom_point(pch = 10, color = "red", size = 2) + 
+  ggtitle(label = "Scatteprlot X2 vs. Y") + 
+  xlab(label = "Feature X2") + 
+  ylab(label = "Feature Y") + 
+  theme_bw()
+
+grid.arrange(Plot1, 
+             Plot2, 
+             Plot3,ncol = 2)
+
+
+
+
+
+```
+
+
+
+
+**Part (c)**
+
+
+* We fit a least squares regression to predict y using x1 and x2: 
+
+```{r}
+lm.fit = lm(y ~ x1 + x2, data = DataSet)
+
+summary(lm.fit)
+
+```
+
+
+* The estimated coefficients are: 
+
+* $\hat \beta_0 = 2.1305$. 
+
+* $\hat \beta_1 = 1.4396$. 
+
+* $\hat \beta_2 = 1.0097$ 
+
+
+* We can reject the null hypothesis for $\beta_1 = 0$ because the p-value is $0.0487$ which shows there is some evidence to accept the alternative hypothesis. We cannot reject the null hypothesis for $\beta_2 = 0$ because the p-value is $0.3754$ which is a large p value. 
+
+
+
+**Part (d)**
+
+* We fit a linear regression to predict y using x1 only
+
+```{r}
+lm.fit2 = lm(y ~ x1, data = DataSet)
+
+summary(lm.fit2)
+```
+
+
+* We have strong evidence to reject the null hypothesis for $\beta_1 =0$ because the p-value is very small. 
+
+
+**Part (e)**
+
+* We fit a linear regression to predict y using x2 only
+
+```{r}
+lm.fit3 = lm(y ~ x2, data = DataSet)
+
+summary(lm.fit3)
+```
+
+
+* We have strong evidence to reject the null hypothesis for $\beta_2 =0$ because the p-value is very small. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
