@@ -1,0 +1,694 @@
+---
+title: 'Chapter 4: Applied Exercises'
+author: "Phuong Dong Le"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(class)
+library(MASS)
+library(ISLR)
+library(RColorBrewer)
+library(corrplot)
+library(boot)
+### GGplot: 
+library(ggplot2)
+library(ggthemes)
+library(tidyverse)
+### Styling for tables and figures:
+library(kableExtra)
+library(gridExtra)
+```
+
+
+## Exercise 10: The question involves using the `Weekly` data set which is part of the `ISLR` package. 
+
+
+* This question involves the Weekly data set. The data is similar in natrue to the Smarket data except that it contains 1089 weekly returns for 21 years from the beginning of 1990 to the end of 2010. 
+
+
+**Part (a)**
+
+```{r, message=FALSE, warning=FALSE}
+attach(Weekly)
+dim(Weekly)
+names(Weekly)
+summary(Weekly)
+
+```
+
+```{r}
+### Truncate: 
+X = Weekly[,-9]
+M = cor(X)
+corrplot(M, type  = "upper", order = "hclust", 
+         col = brewer.pal(n = 8, name = "RdYlBu"))
+pairs(X)
+
+```
+
+
+
+**Part (b)**
+
+* We perfom the logistic regression with Direction as the response and the five lag variables  + Volume = predictors. 
+
+```{r}
+glm.fits = glm(formula = Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume, 
+               data = Weekly, 
+               family = "binomial")
+
+summary(glm.fits)
+
+```
+
+* The coefficient of Lag2 appears to be statistically significant becaus the p values is the smallest. Another one could be possibly is Lag1 which is 0.1181. 
+
+
+**Part (c)**
+
+
+* Compute the confusion matrix and overall fraction of correct predictions. 
+
+
+```{r}
+glm.probs = predict(glm.fits, type = "response")
+## Create the vector of classifying predictions: 
+contrasts(Weekly$Direction) ## classify 1 for Up.
+
+## Create the vector of classifying: 
+glm.pred = rep("Down", 1089)
+glm.pred[glm.probs > 0.50] = "Up"
+
+## Compute the confusion matrix table: 
+
+table(glm.pred, Direction)
+
+## Accuracry: 
+mean(glm.pred == Direction)
+
+```
+
+* So our model has around 56% of accuracy overal. According to the confusion matrix, the logistic regression predicts 430 days for "Up" while in reality there are 557 days for "Up". For Decline days, it is also accurate as it predicts 54 days of declining while in reality our data has 48 of days declining. 
+
+
+**Part (d)**
+
+
+* We fit the logistic regression model for a training data period from 1990 and 2008, with Lag2 as the only predictor. Compute the confusion matrix and the overall factor of correct predictions for the held out data (the data from 2009 and 2010). 
+
+
+```{r}
+## Split into training data set and testing: 
+train = (Year >= 1990 & Year <= 2008)
+Weekly.Train = Weekly[train,]
+Weekly.Test = Weekly[!train,]
+dim(Weekly.Test)
+## Prediction data: 
+Direction.Pred = Direction[!train]
+
+
+
+
+glm.fits = glm(Direction ~ Lag2, data = Weekly, 
+               subset = train, 
+               family= "binomial")
+
+
+glm.probs = predict(object = glm.fits, Weekly.Test, type = "response")
+
+glm.pred = rep("Down", 104)
+glm.pred[glm.probs>0.5] = "Up"
+
+table(glm.pred, Direction.Pred)
+### Accuracy: 
+mean(glm.pred == Direction.Pred)
+```
+
+
+* The accuracy is overally 62% of accucracy. There are 34 days of increasing for prediction while in reality there are such 56 days. The model predicts 9 days of declining while in reality there are 5 of such day.
+
+**Part (e)**
+
+* Repeat part (d) using linear discriminant analysis: 
+
+```{r}
+lda.fit = lda(Direction ~ Lag2, data = Weekly, subset = train)
+lda.fit
+plot(lda.fit)
+
+
+## Predict: 
+
+lda.pred = predict(object = lda.fit, Weekly.Test)
+names(lda.pred)
+lda.class = lda.pred$class
+```
+
+```{r}
+table(lda.class, Direction.Pred)
+mean(lda.class == Direction.Pred)
+```
+
+* Similar result with logistic regression. 
+
+
+
+**Part (f): Repeat using QDA**
+
+
+```{r}
+qda.fit = qda(Direction ~ Lag2, data = Weekly, subset = train)
+qda.fit
+
+## Predict: 
+qda.pred = predict(object = qda.fit, Weekly.Test)
+names(qda.pred)
+qda.class = qda.pred$class
+table(qda.class, Direction.Pred)
+## Accuracy: 
+mean(qda.class == Direction.Pred)
+```
+
+
+* QDA does not give a good result although the accuracy rate is about 58%. 
+
+
+**Part (g): Using KNN with K=1**
+
+
+```{r}
+train = (Year >= 1990 & Year <= 2008)
+## Split into training and testing data set: 
+train.X = as.matrix(Lag2[train])
+test.X = as.matrix(Lag2[!train])
+### Training and testing for Y: 
+train.Y =as.matrix(Direction[train])
+test.Y = as.matrix(Direction[!train])
+
+
+
+set.seed(1)
+### Method of K-Nearest Neighbors: 
+knn.fit = knn(train.X,test.X, train.Y, k = 1)
+table(knn.fit, test.Y)
+```
+
+* In this case, we may conclude that the percentage of correct predictions on the test data is 50%. In other words 50% is the test error rate. We could also say that for weeks when the market goes up, the model is right 50.8196721% of the time. For weeks when the market goes down, the model is right only 48.8372093% of the time.
+
+
+
+## Exercise 11: develop a model to predict whether a given car gets high or low gass mileage based on the `Auto` data set. 
+
+
+**Part (a)**
+
+* We create a binary variable `mpg01` containing 1 if  `mpg` is a value above its median, and 0 if it is below the median. 
+```{r, message=FALSE, warning=FALSE}
+attach(Auto)
+
+
+medvalue = median(Auto$mpg)
+print(list(
+  median_mpg = medvalue
+))
+mpg01 =rep(0, 392)
+mpg01[mpg > medvalue] = 1
+Auto = cbind(Auto, mpg01)
+Auto = as.data.frame(Auto)
+str(Auto)
+```
+
+
+**Part (b)**
+
+
+```{r}
+names(Auto)
+pairs(Auto[,c(1,2,3,4,5,6,10)])
+```
+
+
+
+* The features seem most likely to predict `mpg01` are `horsepower`, `weight`, and `acceleration`. 
+
+
+**Part (c)**
+
+* We split the data into training set and a test set: 
+
+
+```{r, message=FALSE, warning=FALSE}
+attach(Auto)
+### We split the training set into halves: 
+train = (year %% 2 == 0)
+
+
+### Training and Testing Set:
+
+Auto.train = Auto[train,]
+Auto.test = Auto[!train,]
+
+mpg01.test = mpg01[!train]
+
+
+```
+
+
+**Part (d)**
+
+
+
+* We perform LDA on the training data in order to predict `mpg01` using the variables that seemed most associated with `mpg01`: 
+
+
+```{r}
+lda.fit = lda(mpg01 ~ weight + horsepower + acceleration, data = Auto, subset = train)
+lda.fit
+```
+
+
+```{r}
+pred.lda <- predict(lda.fit, Auto.test)
+lda.class = pred.lda$class
+
+table(lda.class, mpg01.test)
+
+ErrorRate = mean( lda.class != mpg01.test   )
+
+print(list(
+  Test_Error_Rate = ErrorRate
+))
+```
+
+
+* Our test error rate is of $14.83 \%$. 
+
+**Part (e)**
+
+* We consider the Quadratic Discriminant Analysis on the training data set: 
+
+
+```{r}
+qda.fit = qda(mpg01 ~ horsepower + weight + acceleration, 
+              data = Auto, 
+              subset = train)
+
+qda.fit
+```
+
+
+
+```{r}
+qda.pred = predict(qda.fit, Auto.test)
+
+qda.class = qda.pred$class
+
+table(qda.class, mpg01.test)
+ErrorRate.qda = mean(qda.class != mpg01.test)
+
+print(list(
+  Test_Error_Rate = ErrorRate.qda
+))
+```
+
+* The test error for quadratic discriminant analysis is still around $14.835$. 
+
+
+
+**Part (f)**
+
+
+* Now we consider the use of logistic regression: 
+
+```{r}
+
+glm.fit = glm(mpg01 ~ horsepower + weight + acceleration, 
+              data = Auto, 
+              subset = train, 
+              family = "binomial")
+summary(glm.fit)
+```
+
+
+```{r}
+glm.probs = predict(glm.fit, Auto.test, type = "response")
+
+
+glm.pred = rep(0, length(glm.probs))
+glm.pred[glm.probs > 0.5] = 1
+
+table(glm.pred, mpg01.test)
+
+ErrorRate.log = mean(glm.pred != mpg01.test)
+
+print(list(
+  Test_Error_Rate = ErrorRate.log
+))
+
+```
+
+* The test error rate is about $14.83516 \%$
+
+
+**Part (g)**
+
+* We now consider perfoming the K-Nearest Neighborhood Classification: 
+
+
+
+```{r}
+
+
+### Testing and Trainign set:
+train.X = cbind(horsepower, weight, acceleration)[train,]
+test.X = cbind(horsepower, weight, acceleration)[!train,]
+
+train.Y = mpg01[train]
+test.Y = mpg01[-train]
+
+
+### We perform the knn for value k from 1 to 10.
+
+ErrorSet = rep(NA)
+Kvalue = 1:10
+
+for (i in 1:10){
+  knn.fit = knn(train = train.X, 
+                test = test.X, 
+                train.Y, k = i)
+  ErrorSet[i] = mean(knn.fit != mpg01.test)
+}
+
+
+DataKNN = cbind(Kvalue, ErrorSet)
+DataKNN = as.data.frame(DataKNN)
+
+
+ErrorPlot = ggplot(data = DataKNN, 
+                   aes(x = factor(Kvalue), 
+                       y = ErrorRate)) + 
+  geom_point(pch  = 2, color = "red", size = 3) +
+  geom_path(aes(
+    x = Kvalue, 
+    y = ErrorRate
+  )) + 
+  ggtitle(label = "Test Error Rate for each K") + 
+  xlab(label = "K value") + 
+  ylab(label = "Test Error Rate") + 
+  theme_bw()
+
+print(ErrorPlot)
+
+DataKNN.min = filter(DataKNN, c(ErrorSet == min(ErrorSet)))
+
+print(DataKNN.min)
+```
+
+* For the value of $K$ from 1 to 10, the best values for K that give the minimum value of Test Error Rate is  $K = 8$. 
+
+```{r}
+### K = 8: 
+knn.fit8 = knn(train = train.X, 
+                test = test.X, 
+                train.Y, k = 8)
+Table.K.8 = table(knn.fit8, mpg01.test)
+print(Table.K.8)
+```
+
+
+## Exercise 13: This question involves the `Boston` data set:
+
+```{r, message=FALSE, warning = FALSE}
+attach(Boston)
+names(Boston)
+Boston = Boston[,1:14]
+
+crimbin = rep(0, 506)
+crimbin[crim > median(crim)] = 1
+
+Boston = cbind(Boston, crimbin) 
+Boston = as.data.frame(Boston)
+str(Boston)
+```
+
+
+
+**Part (a)**
+
+```{r}
+pairs(Boston[,c(2,3,5,6,7,8,9,10,11,12,13,14,15)])
+```
+
+* The variable features that seem likely to predict `crim01` are: 
+
+* `lstat`, `ptratio`, `black`, `rad`. 
+
+
+```{r, fig.align='left', fig.height=8, fig.width=10}
+Plot1 = ggplot(data = Boston, 
+               aes(x = crimbin, y = lstat, 
+                   color = as.factor(crimbin))) + 
+  geom_violin() + 
+  theme_base()
+
+Plot2 = ggplot(data = Boston, 
+               aes(x = crimbin, y = ptratio, 
+                   color = as.factor(crimbin))) + 
+  geom_violin() + 
+  theme_base()
+
+
+Plot3 = ggplot(data = Boston, 
+               aes(x = crimbin, y = black, 
+                   color = as.factor(crimbin))) + 
+ geom_violin() + 
+  theme_base()
+
+
+Plot4 = ggplot(data = Boston, 
+               aes(x = crimbin, y = rad, 
+                   color = as.factor(crimbin))) + 
+  geom_violin() + 
+  theme_base()
+
+
+grid.arrange(Plot1,Plot2,Plot3, Plot4, ncol =2)
+
+
+
+```
+
+
+
+
+**Part (c)**
+
+
+* We consider splitting the data into training and testing set: 
+
+
+```{r}
+set.seed(1)
+train = sample(x = 506, size = 506*0.5)
+Boston.train = Boston[train, ]
+Boston.test = Boston[-train, ]
+crimbin.test = crimbin[-train]
+
+
+```
+
+
+
+
+
+**Part (d)**
+
+
+* We fit the logistic regression: 
+
+```{r}
+glm.fit = glm(formula =  crimbin ~ lstat + black + ptratio + rad, 
+              data = Boston, 
+              subset = train, 
+              family = "binomial")
+
+summary(glm.fit)
+
+glm.probs = predict(glm.fit, Boston.test, type = "response")
+
+glm.pred = rep(0, length(glm.probs))
+glm.pred[glm.probs > 0.25] = 1
+
+table(glm.pred, crimbin.test)
+
+print(
+  mean(glm.pred != crimbin.test)
+)
+```
+
+* The test error rate is $0.267$. 
+
+
+**Part (e)**
+
+
+* We consider using Linear Discriminant Analysis: 
+
+```{r}
+lda.fit = lda(crimbin ~ lstat + black + ptratio + rad, 
+              data = Boston, subset = train)
+lda.fit
+
+lda.pred = predict(lda.fit, Boston.test)
+
+lda.class = lda.pred$class
+
+table(lda.class, crimbin.test)
+print(
+  mean(lda.class!= crimbin.test)
+)
+```
+
+
+* The test error rate for LDA is 24.5%
+
+
+**Part (f)**
+
+
+* We consider using quadratic discriminant analysis: 
+
+
+```{r}
+qda.fit = qda(
+  crimbin ~ lstat + black + ptratio + rad, 
+              data = Boston, subset = train
+)
+
+qda.fit
+
+qda.pred = predict(qda.fit, Boston.test)
+
+qda.class = qda.pred$class
+
+table(qda.class, crimbin.test)
+print(
+  mean(qda.class!= crimbin.test)
+)
+```
+
+* The test error rate for QDA is $20.5 \%$. 
+
+
+**Part (g)**
+
+
+* We now consider using the K-Nearest Neighbors: 
+
+
+```{r}
+## Splitting into training and testing sets:
+set.seed(1)
+train = sample(x = 506, size = 506*0.5)
+train.X = cbind(lstat, black, ptratio, rad)[train,]
+test.X = cbind(lstat, black, ptratio, rad)[-train,]
+
+train.Y = crimbin[train]
+test.Y = crimbin[-train]
+
+Kvalue = 1:20
+ErrorRate = rep(NA)
+
+for (i in Kvalue){
+knn.fit = knn(train.X,  test.X,
+              train.Y, k = i)
+ErrorRate[i] = mean(knn.fit != test.Y)
+
+}
+DataKNN = cbind(ErrorRate, Kvalue)
+DataKNN = as.data.frame(DataKNN)
+
+ErrorPlot = ggplot(data = DataKNN, 
+                   aes(x = factor(Kvalue), 
+                       y = ErrorRate)) + 
+  geom_point(pch  = 2, color = "red", size = 3) +
+  geom_path(aes(
+    x = Kvalue, 
+    y = ErrorRate
+  ), lty = 2) + 
+  ggtitle(label = "Test Error Rate for each K") + 
+  xlab(label = "K value") + 
+  ylab(label = "Test Error Rate") + 
+  theme_bw()
+
+print(ErrorPlot)
+
+DataKNNmin = filter(DataKNN, c(ErrorRate == min(ErrorRate)))
+print(DataKNNmin)
+```
+
+
+* the best value $K = 1$ which has the lowest the test error rate which is $0.158$. 
+
+
+```{r}
+knn.fit1 = knn(train.X,  test.X,
+              train.Y, k = 1)
+table(knn.fit1, test.Y)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
