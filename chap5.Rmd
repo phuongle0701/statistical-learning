@@ -1,0 +1,667 @@
+---
+title: 'Chapter 5: Resampling Methods Applied Exercise'
+author: "Phuong Dong Le"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r, message=FALSE, warning=FALSE}
+library(class)
+library(MASS)
+library(ISLR)
+library(RColorBrewer)
+library(corrplot)
+library(boot)
+### GGplot: 
+library(ggplot2)
+library(ggthemes)
+library(tidyverse)
+### Styling for tables and figures:
+library(kableExtra)
+library(gridExtra)
+```
+
+
+
+## Exercise 5: This question involves the data set `Default`
+
+
+```{r, message=FALSE, warning=FALSE}
+attach(Default)
+Default = Default[complete.cases(Default),]
+dim(Default)
+str(Default)
+summary(Default)
+```
+
+
+**Part (a)**
+
+
+* We fit a logistic regression model that uses `Income` and `balance` to predict `default`: 
+
+```{r}
+glm.fit = glm(default ~ balance + income, data = Default, family = "binomial")
+summary(glm.fit)
+```
+
+
+**Part (b)** 
+
+* We use the validation set approach, and estimate the test error of this model. 
+
+
+```{r}
+n = dim(Default)[1]
+```
+
+
+
+* We fit multiple logistic regression models: 
+
+
+```{r, message=FALSE, warning=FALSE}
+
+Size = c(0.01,0.1,0.25,0.5,0.75, 0.8, 0.85)
+SampleSize = Size*n
+glmpred = rep(NA)
+ErrorRate = rep(NA)
+for(i in 1:length(SampleSize)){
+### Split into training and validation set:
+  set.seed(1)
+train = sample(x = n, size = SampleSize[i])
+### Training Set: 
+Default.train = Default[train,]
+Default.test = Default[-train,]
+### Testing Set: 
+default.train = Default[train,]$default
+default.test  = Default[-train,]$default
+
+glm.fit = glm(default ~ income + balance, data = Default, 
+               subset = train, 
+               family = "binomial")
+glm.probs = predict(glm.fit, Default.test, type = "response")
+glm.pred = rep("No", length(glm.probs))
+glm.pred[glm.probs > 0.5] = "Yes"
+ErrorRate[i] = mean(glm.pred !=default.test)
+
+
+}
+```
+
+
+
+```{r}
+DataErrorRate  = data.frame(SampleSize, ErrorRate)
+
+ErrorPlot = ggplot(data = DataErrorRate, 
+                   aes(x = factor(SampleSize),
+                       y = ErrorRate)) + 
+  geom_point(pch = 2, size = 4, color = "red") + 
+  ggtitle(label = "Error Rate of Validation Approach") + 
+  xlab(label = "Sample Size (Random)") + 
+  ylab(label = "Test Error Rate") + theme_bw()
+
+
+
+print(ErrorPlot)
+```
+
+
+
+**Part (d)**
+
+* We consider a logistic regression model to predicct the probability of default using income, balance and a dummy variable student: 
+
+
+```{r}
+glm.fit = glm(default ~ income + balance + factor(student), 
+              data = Default, family = "binomial")
+summary(glm.fit)
+```
+
+
+* Repeat Part B for this particular model: 
+
+
+```{r, message=FALSE, warning=FALSE}
+
+Size = c(0.01,0.1,0.25,0.5,0.75, 0.8, 0.85)
+SampleSize = Size*n
+glmpred = rep(NA)
+ErrorRate = rep(NA)
+for(i in 1:length(SampleSize)){
+### Split into training and validation set:
+  set.seed(1)
+train = sample(x = n, size = SampleSize[i])
+### Training Set: 
+Default.train = Default[train,]
+Default.test = Default[-train,]
+### Testing Set: 
+default.train = Default[train,]$default
+default.test  = Default[-train,]$default
+
+glm.fit = glm(default ~ income + balance + factor(student), data = Default, 
+               subset = train, 
+               family = "binomial")
+glm.probs = predict(glm.fit, Default.test, type = "response")
+glm.pred = rep("No", length(glm.probs))
+glm.pred[glm.probs > 0.5] = "Yes"
+ErrorRate[i] = mean(glm.pred !=default.test)
+}
+
+```
+
+```{r}
+DataErrorRate  = data.frame(SampleSize, ErrorRate)
+
+ErrorPlot = ggplot(data = DataErrorRate, 
+                   aes(x = factor(SampleSize),
+                       y = ErrorRate)) + 
+  geom_point(pch = 15, size = 4, color = "red") + 
+  ggtitle(label = "Error Rate of Validation Approach with dummy variable Student") + 
+  xlab(label = "Sample Size (Random)") + 
+  ylab(label = "Test Error Rate") + theme_bw()
+print(ErrorPlot)
+```
+
+
+## Exercise 6: Computing the logistic regression coefficients in 2 different ways: bootstrap and using the stadard formula in the `glm()`
+
+
+**Part (a)**
+
+```{r}
+glm.fit = glm(default ~ income + balance, data = Default, 
+              family = "binomial")
+
+summary(glm.fit)
+```
+
+
+* The standard error estimated are outlined in the output above. 
+
+
+
+**Part (b)**
+
+* We write boot.fn function takes input data Default and index output the coefficients estimates for income and balance: 
+
+```{r}
+
+n.len = dim(Default)[1]
+boot.fn = function(data, index) 
+{ 
+  form.model = default ~ income + balance
+  glm.fit = glm(formula = form.model, data = data, 
+                family = "binomial", 
+                subset = index)
+  coef.est = coefficients(glm.fit)
+  return(coef.est)
+}
+
+### Return the est. coefficient as using full data set: 
+boot.fn(data = Default, index = 1:n.len)
+```
+
+
+
+* We perfom Bootstrap on $R  = 10,000$
+
+```{r}
+N = 1000
+boot.coef = boot(data = Default, boot.fn, R = N )
+print(boot.coef)
+```
+
+
+
+* The standard errors are respectively $4.351099e-01, 4.673198e-06, 2.336489e-04$ for $\hat\beta_0, \hat\beta_1, \hat\beta_2$.
+
+
+
+
+
+**Part (d)**
+
+
+The standard errors are estimated to be very close when using bootstrap and method `glm()` function. 
+
+
+
+## Exercise 7: This question involves method Leave-One-Out-Cross-Validation (LOOCV) method. 
+
+
+**Part (a)**
+
+```{r, message=FALSE, warning=FALSE}
+attach(Weekly)
+glm.fit = glm(Direction ~ Lag1 + Lag2, 
+              data = Weekly, 
+              family = "binomial")
+summary(glm.fit)
+```
+
+
+
+**Part (b)**
+
+* We fit a logistic regression model that predicts Predict using Lag1 and Lag2 except for the first observation: 
+
+
+```{r}
+glm.fit = glm(
+  Direction ~ Lag1 + Lag2, 
+              data = Weekly[-1,], 
+              family = "binomial"
+)
+summary(glm.fit)
+
+```
+
+
+
+**Part (c)**
+
+* We predict the direction of the first observation: $P(Direction = "Up" | Lag1, Lag2) > 0.5$ and check this if the observation correctly classified: 
+
+
+```{r}
+glm.pred.First = predict.glm(glm.fit, Weekly[1,], type = "response")
+
+Class.First.Observation = (glm.pred.First > 0.5)
+
+print(list(
+  Pred.First.Observation =  glm.pred.First,
+  Class.First.Observation = Class.First.Observation)
+)
+
+```
+
+* The observation is correctly classified. 
+
+
+**Part (d)**
+
+
+* We write a loop from i = 1 to i = n where n is the number of observations in the data set that: 
+
+* (i). Fit the logistic regression model using all but except ith observation to predict Direction using Lag1 and Lag2. 
+
+* (ii). Compute the posterior probability of the market moving up for the ith observation. 
+
+* (iii). Use the posterior probability for the ith observation in order to predict whether or not the market moves up. 
+
+
+* (iv). Determine an error was made in predicting the direction for ith observation. If an error was made then indicate this as a 1, and otherwise indicate it as a 0. 
+
+
+
+
+```{r}
+### Create the vector to store values of error: 
+ErrorMade = rep(NA)
+
+### length of data set: 
+n = dim(Weekly)[1]
+
+
+for(i in 1:n){
+  glm.fit = glm(
+    Direction ~ Lag1 + Lag2, 
+    data = Weekly[-i,],
+    family = "binomial"
+  )
+  Predict.Up = predict.glm(glm.fit, 
+                           newdata = Weekly[i,],
+                           type = "response") > 0.5
+  
+  True.Data = Weekly[i,]$Direction == "Up"
+  
+  if (Predict.Up != True.Data){
+    ErrorMade[i] = 1
+  }
+  else{
+    ErrorMade[i] = 0
+  }
+  
+}
+```
+
+
+**Part (e)**
+
+* We compute the Test Error Rate:
+
+```{r}
+
+Test.Error.Rate = mean(ErrorMade)
+
+print(list(
+  Test.Error.Rate = Test.Error.Rate
+))
+```
+
+
+* The LOOCV test error rate is about $44.9\%$ which seems large, this indicates that logistic regression model predicting Direction using Lag1 and Lag2 is not a good model. 
+
+
+
+## Exercise 8: We perform cross-validation from a simulated data set: 
+
+
+**Part (a)**
+
+* We generate the simulated data set: 
+
+```{r}
+set.seed(1)
+x = rnorm(100)
+eps = rnorm(100)
+y = x - 2*x^2 + eps
+
+DataSet  = data.frame(x,y, eps)
+```
+
+
+* The n value is 100, and p the number of predictors is 2. The model of this is: 
+
+$$
+Y = X - 2 \times X^{2} + \epsilon
+$$
+
+where $\epsilon \sim N(0,1)$
+
+
+
+**Part (b)**
+
+* We create the scatterplot of X against Y: 
+
+```{r}
+Scat.Plot = ggplot(data = DataSet, 
+                   aes(x = x, y = y)) + geom_point() +
+  ggtitle(label = "Scatterplot of X against Y") + 
+  xlab(label = "Feature X") + 
+  ylab(label = "Feature Y") + 
+  theme_bw()
+
+print(Scat.Plot)
+```
+
+* This is non-linear relationship. The quadratic relationship seems to appear the most described relation for this data between feature X and feature Y. 
+
+
+**Part (c)**
+
+
+* We compute the LOOCV errors resulting from fitting four models with polynomial degree from i = 1 to i = 4. 
+
+
+```{r}
+LOOCV.error = rep(NA)
+deg.poly = c(1,2,3,4)
+
+
+### Perform LOOCV: 
+
+set.seed(1)
+for (i in deg.poly){
+  glm.fit = glm(y ~ poly(x, degree = i), data = DataSet)
+  LOOCV.error[i] = cv.glm(data = DataSet, glmfit = glm.fit)$delta[1]
+}
+
+DataError.LOOCV = cbind(deg.poly, LOOCV.error)
+DataError.LOOCV = as.data.frame(DataError.LOOCV)
+
+
+
+Error.Plot = ggplot(data = DataError.LOOCV, 
+                    aes(x = factor(deg.poly), y = LOOCV.error)) +
+  geom_point(pch = 2, color = "red", size = 6) + 
+  theme_bw() + 
+  xlab(label = "Polynomial Degree") + 
+  ylab(label = "LOOCV Error Rate") + 
+  ggtitle(label = "LOOCV Test Error Rate") + 
+  geom_path(mapping = aes(x = deg.poly, y = LOOCV.error), 
+            data = DataError.LOOCV, size = 1, lty = 2)
+
+
+print(Error.Plot)
+
+```
+
+
+
+
+
+* It seems that highest LOOCV Test Error Rate is highest associated with the degree of polynomial 1 also known as the linear least square. The quadratic least square appears to be the best. There is not much improvement when fitting higher polynimal degree other than degree 2. 
+
+
+**Part (d)** 
+
+* We repeat using Cross-validation: 
+
+
+```{r}
+CV.error = rep(NA)
+deg.poly = c(1,2,3,4,5,6,7,8,9)
+
+
+### Perform LOOCV: 
+
+set.seed(46617)
+for (i in deg.poly){
+  glm.fit = glm(y ~ poly(x, degree = i), data = DataSet)
+  CV.error[i] = cv.glm(data = DataSet, glmfit = glm.fit, K = 5)$delta[1]
+}
+
+DataError.CV = cbind(deg.poly, CV.error)
+DataError.CV = as.data.frame(DataError.CV)
+
+
+
+Error.Plot = ggplot(data = DataError.CV, 
+                    aes(x = factor(deg.poly), y = CV.error)) +
+  geom_point(pch = 2, color = "red", size = 6) + 
+  theme_bw() + 
+  xlab(label = "Polynomial Degree") + 
+  ylab(label = "CV Error Rate") + 
+  ggtitle(label = "CV Test Error Rate with K = 5") + 
+  geom_path(mapping = aes(x = deg.poly, y = CV.error), 
+            data = DataError.CV, size = 1, lty = 2)
+
+
+print(Error.Plot)
+
+
+```
+
+
+* The same conclusion holds with previous part using LOOCV. 
+
+
+## Exercise 9: This question involves the data set `Boston` housing. 
+
+
+
+**Part (a)**
+
+* We estimate the population mean of medv. Denote this estimate $\hat \mu$
+
+
+
+```{r, message=FALSE, warning=FALSE}
+
+attach(Boston)
+medv = Boston[,c("medv")]
+
+mu.hat = mean(medv)
+
+print(list(
+  estimate.mu.hat = mu.hat
+))
+```
+
+
+
+**Part (b)**
+
+* We compute the estimate of the standard error of $\hat\mu$: 
+
+
+```{r}
+sample.std = sd(medv)
+SE.mu.hat = sample.std/sqrt(length(medv))
+
+print(list(
+  SE.mu.hat = SE.mu.hat
+))
+
+
+
+```
+
+**Part (c)**
+
+* We estimate the standard error of $\hat\mu$ using the boostrap: 
+
+```{r}
+boot.fn = function(data, index){
+  DataSet  = data[index]
+  mean.val = mean(DataSet)
+  
+  return(mean.val)
+}
+### We check the function for boostrap: 
+boot.fn(data = medv, index = sample(100,10))
+boot.fn(data = medv, index = 1:length(medv))
+
+R.boot = 1000
+
+boot.strap = boot(data = medv, statistic = boot.fn, R = R.boot)
+
+boot.strap
+```
+
+
+* The estimate of  SE of $\hat\mu$ using boostrap is $0.4078936$ which is very close to the estimated SE from part (b). 
+
+
+**Part (d)**
+
+* The 95% Confidence interval for bootstrap estimate: 
+
+```{r, message=FALSE, warning=FALSE}
+
+CI.boot.mu.hat = boot.ci(boot.strap, conf = 0.95)
+print(CI.boot.mu.hat)
+```
+
+* The 95% Confidence Interval for the mean of medv using bootstrap is $(21.73, 23.33)$. 
+
+
+* The 95% Confidence interval for the estimate of mean medv using `t.test()`: 
+
+
+```{r}
+CI.mu.hat = t.test(medv, conf.level = 0.95)
+print(CI.mu.hat)
+```
+
+* The 95% Confidence interval using `t.test()` is $(21.72953, 23.33608)$
+
+
+**Part (e)**
+
+* Now we consider the estimate of median for $medv$: 
+
+
+```{r}
+med.hat = median(medv)
+print(med.hat)
+
+```
+
+
+**Part (f)** 
+
+* We now estimate the standard error for median using bootstrap: 
+
+```{r, message=FALSE, warning=FALSE}
+
+n = length(medv)
+
+boot.fn = function(data, index){
+  DataSet = data[index]
+  med.val = median(DataSet)
+  
+  return(med.val)
+  
+}
+
+### Test the function that we write: 
+boot.fn(data =medv, index = sample(n, 100))
+boot.fn(data = medv, index = sample(n,10))
+
+
+Median.Bootstrap = boot(data = medv, statistic = boot.fn, 
+                        R = 1000)
+
+print(Median.Bootstrap)
+
+CI.med.boot = boot.ci(Median.Bootstrap, conf = 0.95)
+
+print(CI.med.boot)
+
+```
+
+* The standard error of estimated median value using bootstrap is $0.362986$. The 95% Confidence interval of $\hat\mu_{med}$ is $(20.44, 21.94)$
+
+
+**Part (g)**
+
+* We now consider estimating the tenth percentile of medv in the Boston surburbs:
+
+```{r}
+tenth.quant = quantile(medv, probs = 0.10 )
+tenth.quant
+```
+
+* The value of estimated tenth percentile for `medv` is 12.75
+
+
+**Part (h)**
+
+* We now estimate the tenth percentile using bootstrap: 
+
+```{r}
+boot.fn =  function(data, index) 
+{
+  DataSet = data[index] 
+  tenth.quant = quantile(DataSet, 
+                         probs = 0.10)
+  
+  return(tenth.quant)
+}
+
+### Test the function: 
+boot.fn(data = medv, index = sample(n, 100))
+
+
+Quant.bootstrap = boot(data = medv, statistic = boot.fn, R = 1000)
+print(Quant.bootstrap)
+boot.ci(Quant.bootstrap, conf = 0.95, type = c("norm"))
+```
+
+
+* The standard error of estimated tenth percentile is $ 0.4980154$. The 95% confidence interval of bootstrap tenth percentile value is $(11.76, 13.69 )$. 
+
+
+
+
